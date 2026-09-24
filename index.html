@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>17:00 Office Escape!</title>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#1c1f3a;--bg:#eef3f1;--panel:#fff;--violet:#4b53bc;--note:#ffd447;--red:#e4472e;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--ink:#e9ebff;--bg:#15172b;--panel:#22254a}}
+:root[data-theme="dark"]{--ink:#e9ebff;--bg:#15172b;--panel:#22254a}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html,body{height:100%;margin:0}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:400 15px/1.45 Prompt,"Noto Sans Thai",system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;overflow-x:hidden;-webkit-user-select:none;user-select:none}
+#hud,#stage{width:min(100vw,calc((100dvh - 64px)*.77),400px)}
+#hud{display:flex;align-items:center;gap:10px;padding:8px 10px}
+#clk{font-size:26px;font-weight:700;min-width:64px;font-variant-numeric:tabular-nums}
+#bar{flex:1;height:18px;border-radius:9px;background:rgba(128,128,128,.28);position:relative;overflow:hidden}
+#fill{position:absolute;left:0;top:0;bottom:0;width:0}
+#bar span{position:relative;font-size:11px;font-weight:700;line-height:18px;padding-left:8px;color:#1c1f3a}
+#sc{font-size:20px;font-weight:700;min-width:56px;text-align:right;font-variant-numeric:tabular-nums}
+#stage{position:relative}
+#cv{display:block;width:100%;aspect-ratio:400/520;touch-action:none;border-radius:6px;background:#d6e4e0}
+#bn{position:absolute;top:8px;left:8px;right:8px;background:var(--violet);color:#fff;border-radius:6px;padding:6px 10px;font-size:13px;font-weight:700;text-align:center;opacity:0;transition:opacity .25s;pointer-events:none}
+#ov{position:absolute;inset:0;display:none;padding:10px;background:rgba(28,31,58,.6);overflow:auto;border-radius:6px}
+.card{margin:auto;background:var(--panel);color:var(--ink);width:100%;border-radius:8px;border-top:8px solid var(--violet);padding:0 16px 16px;text-align:center;box-shadow:0 6px 24px rgba(0,0,0,.3)}
+h1{font-size:26px;margin:14px 0 4px}h2{font-size:21px;margin:4px 0}h3{font-size:15px;margin:12px 0 4px}p{margin:6px 0}
+.big{font-size:44px;line-height:1.1;margin-top:10px}
+.dim{opacity:.7;font-size:13px}.er{color:var(--red);min-height:1.3em;font-size:13px}
+.score{font-size:40px;font-weight:700;font-variant-numeric:tabular-nums}
+label{display:block;font-weight:700;margin:10px 0 4px}
+input{font:inherit;width:100%;padding:10px;border-radius:6px;border:2px solid var(--violet);background:var(--bg);color:var(--ink);text-align:center;-webkit-user-select:text;user-select:text}
+button{font:700 16px Prompt,sans-serif;background:var(--note);color:#1c1f3a;border:0;border-radius:6px;padding:11px 14px;margin:5px 0;width:100%;cursor:pointer;box-shadow:0 2px 0 rgba(0,0,0,.25);touch-action:manipulation}
+button:active{transform:translateY(1px)}
+button.alt{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 2px var(--violet)}
+button:focus-visible,input:focus-visible{outline:3px solid var(--violet);outline-offset:2px}
+.st,.lb{list-style:none;padding:0;margin:6px 0;font-size:14px}
+.st li{display:flex;justify-content:space-between}
+.lb{counter-reset:n;text-align:left}
+.lb li{display:flex;gap:6px;padding:5px 8px;border-bottom:1px solid rgba(128,128,128,.25)}
+.lb li::before{counter-increment:n;content:counter(n) ".";width:22px;opacity:.6}
+.lb li span:first-of-type{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lb .me{background:var(--note);color:#1c1f3a;border-radius:4px;font-weight:700}
+.rules{text-align:left;font-size:14px}.rules h3{margin:10px 0 2px}.rules ul{margin:2px 0;padding-left:18px}.rules li{margin:2px 0}
+@keyframes pop{from{transform:scale(.94);opacity:0}}
+@keyframes bob{50%{transform:translateY(-4px)}}
+@keyframes bump{40%{transform:scale(1.3)}}
+@keyframes hot{50%{box-shadow:0 0 0 4px rgba(228,71,46,.45)}}
+.card{animation:pop .2s ease-out}
+.big{animation:bob 1.6s ease-in-out infinite}
+#sc.bump{animation:bump .25s}
+#bar.hot{animation:hot .6s infinite}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header id="hud"><div id="clk">16:00</div><div id="bar"><i id="fill"></i><span id="fc">Stress</span></div><div id="sc">0</div></header>
+<main id="stage"><canvas id="cv" width="400" height="520"></canvas><div id="bn"></div><div id="ov"></div></main>
+<script>
+(()=>{
+const $=i=>document.getElementById(i),cv=$('cv'),g=cv.getContext('2d'),ov=$('ov'),bn=$('bn'),W=400,H=520;
+const dpr=Math.min(2,window.devicePixelRatio||1);cv.width=W*dpr;cv.height=H*dpr;g.scale(dpr,dpr);
+const R=(a,b)=>a+Math.random()*(b-a),pick=a=>a[Math.random()*a.length|0];
+const esc=s=>String(s).replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
+const LS='office17-board';let mem=[];
+const load=()=>{try{const v=JSON.parse(localStorage.getItem(LS));return Array.isArray(v)?v:mem}catch(e){return mem}};
+const save=a=>{mem=a;try{localStorage.setItem(LS,JSON.stringify(a))}catch(e){}};
+const EF='"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif',TF='700 13px Prompt,sans-serif';
+const DK=[];for(const y of[100,240,380])for(const x of[20,150,280])DK.push([x,y]);
+const BOSSQ=['PO ตัวนี้เสร็จยัง?','ขออัปเดตหน่อย','แป๊บเดียวเอง'],POQ=['ขอเพิ่มอีกนิด','เปลี่ยน Requirement นิดเดียว'];
+const BT=[{v:4,sp:34,c:'#ffd447',tx:'Minor Bug +4'},{v:10,sp:38,c:'#ff9f43',tx:'Major Bug +10'},{v:16,sp:44,c:'#e4472e',tx:'Works on My Machine +16'}];
+const EM=['☕','🎧','🚀','📅'],IT=[0,0,0,0,1,1,2,3];
+const RK=[{e:'🥇',n:'Legendary BA',q:'กลับบ้านตรงเวลา'},{e:'🥈',n:'Senior Survivor',q:'โอทีแค่ 1 ชั่วโมง'},{e:'🥉',n:'Junior Hero',q:'ยังอยู่ประชุม'},{e:'💀',n:'Production Slave',q:'กลับบ้าน 22:30'}];
+// option = [label, success chance, ok text, ok stress change, ok score, bad text, bad stress]
+const EV={
+teams:{at:14,ic:'📞',ti:'Incoming Call',tx:'หัวหน้าโทรมา: "แป๊บเดียวเอง"',o:[
+['รับสาย',.65,'คุยแค่ 5 นาทีจริงๆ',0,10,'"แป๊บเดียว" กลายเป็น 40 นาที',10],
+['ปฏิเสธ',.75,'สายหลุดไปเอง',0,15,'โทรซ้ำอีก 3 รอบ',9],
+['ปิดคอมหนี',.50,'หนีรอด! เย็นนี้เงียบสงบ',-8,30,'ยังออนไลน์ในมือถืออยู่...',14]]},
+inc:{at:45,ic:'🚨',ti:'Production Down',tx:'ระบบล่มตอน 16:45 จะทำไงดี?',o:[
+['Fix เอง',.65,'แก้ได้! ฮีโร่ประจำทีม',-10,60,'แก้ไม่ทัน ลูกค้าโทรมาเอง',25],
+['โยนให้ Infra',.55,'Infra: "เดี๋ยวดูให้ครับ"',0,60,'Infra: "ไม่ใช่ของเรานะ"',25],
+['แกล้งปิด Teams',.40,'ไม่มีใครหาเจอ!',-15,60,'หัวหน้าเดินมาถึงโต๊ะ',25]]},
+fri:{at:55,ic:'📅',ti:'Friday Evening',tx:'PO: "ขอ Feature เล็กๆ ก่อนกลับบ้าน"',o:[
+['รับ',.55,'ทำเสร็จเร็วผิดคาด',0,20,'Scope โตเป็นสองเท่า',12],
+['ปฏิเสธ',.70,'PO: "โอเค งั้น Monday"',-5,30,'PO: "เดี๋ยวคุยกับหัวหน้า"',12],
+['ลาพักร้อนทันที',.65,'ลาผ่าน! หัวหน้ายังไม่เห็น',-10,40,'ระบบลาขึ้นว่า "รออนุมัติ"',15]]}};
+const keys={},ptr={d:0,x:0,y:0};let S,last=0,bt,lsc=-1;
+const RM=matchMedia('(prefers-reduced-motion:reduce)').matches,parts=[];
+const burst=(x,y,c,n)=>{if(RM)n=Math.min(n,4);for(let i=0;i<n;i++){const a=R(0,6.28),v=R(40,150);parts.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:R(.3,.7),max:.7,c,sz:R(2,4.5),g:220})}};
+const dust=(x,y)=>{if(!RM)parts.push({x:x+R(-4,4),y,vx:R(-12,12),vy:R(-16,-4),life:.4,max:.4,c:'rgba(120,110,100,.55)',sz:R(2,4),g:0})};
+const mix=(a,b,t)=>a.map((v,i)=>Math.round(v+(b[i]-v)*t)),rgb=a=>'rgb('+a+')',CL=['#c58b4b','#4b53bc','#2bb3ff','#ff8a3d'],PR=[['🪴',16,190],['🖨️',384,190],['🚰',16,330],['🪴',384,330],['🪴',16,500],['🗄️',384,500]];
+
+function newGame(name){
+ Object.keys(keys).forEach(k=>delete keys[k]);parts.length=0;
+ S={name,t:0,walk:0,face:1,flash:0,inv:0,intro:1.2,stress:0,score:0,po:0,bug:0,inc:0,esc:0,n:0,n5:5,fz:0,hp:0,shake:0,uat:0,over:0,paused:0,pending:null,mash:null,done:{},
+ p:{x:W/2,y:H-70},boss:{x:60,y:40,cool:0,blind:0,wt:0,w:{x:200,y:200}},pos:[],bugs:[],items:[],fx:[]};
+}
+const fx=(t,x,y,c)=>S.fx.push({t:0,txt:t,x,y,c:c||'#1c1f3a'});
+function say(t){bn.textContent=t;bn.style.opacity=1;clearTimeout(bt);bt=setTimeout(()=>bn.style.opacity=0,2400)}
+function show(h,fn){ov.innerHTML='<div class="card">'+h+'</div>';ov.style.display='flex';if(fn)fn(ov)}
+function hide(){ov.style.display='none';ov.innerHTML=''}
+function bind(el){el.querySelectorAll('button[data-i]').forEach(b=>b.onclick=()=>S.pending&&S.pending.f(+b.dataset.i))}
+function hit(v,l){if(S.inv>0)return;S.inv=.7;hurt(v,l)}
+function hurt(v,l){S.stress=Math.min(100,S.stress+v);S.shake=RM?0:.25;S.flash=.35;burst(S.p.x,S.p.y,'#e4472e',14);fx(l,S.p.x,S.p.y-26,'#e4472e');if(S.stress>=100)finish(0,'Stress เต็ม 100%! ขอลาป่วยไม่ทัน')}
+const edge=()=>{const e=Math.random()*4|0,a=R(20,W-20),b=R(20,H-20);return e<1?{x:a,y:12}:e<2?{x:a,y:H-12}:e<3?{x:12,y:b}:{x:W-12,y:b}};
+function spawnPO(){const e=edge();S.pos.push({x:e.x,y:e.y,w:1.2,vx:0,vy:0})}
+function tick(){const s=S;s.n++;spawnPO();if(s.t>40&&Math.random()<.35)spawnPO();
+ if(s.n%2==1)s.items.push({k:pick(IT),x:R(30,W-30),y:R(70,H-40),age:0});
+ else{const n=1+(s.t/25|0)+(Math.random()<.4?1:0);for(let i=0;i<n;i++){const e=edge(),r=Math.random(),t=BT[r<.6?0:r<.9?1:2];s.bugs.push({x:e.x,y:e.y,age:0,...t})}}}
+function take(k){const s=S,p=s.p;burst(p.x,p.y,CL[k],16);
+ if(k==0){s.stress=Math.max(0,s.stress-25);fx('☕ Stress -25',p.x,p.y-26,'#1a8f4b')}
+ else if(k==1){s.hp=7;fx('🎧 หัวหน้ามองไม่เห็น 7 วิ',p.x,p.y-26,'#4b53bc')}
+ else if(k==2){s.fz=6;say('🚀 "กำลัง Deploy..." ทุกคนหยุดฟัง 6 วิ')}
+ else{s.boss.blind=10;s.boss.w={x:R(30,W-30),y:R(40,200)};s.boss.wt=1.5;fx('📅 Meeting ปลอม: หัวหน้าหาไม่เจอ',p.x,p.y-26,'#4b53bc')}}
+
+function choice(k){const e=EV[k];S.paused=1;S.pending={n:e.o.length,f:i=>resolve(k,i)};
+ show(`<div class="big">${e.ic}</div><h2>${e.ti}</h2><p>${e.tx}</p>`+e.o.map((o,i)=>`<button data-i="${i}">${i+1}. ${o[0]}</button>`).join(''),bind)}
+function resolve(k,i){const s=S;if(!s.pending)return;s.pending=null;
+ const o=EV[k].o[i],ok=Math.random()<o[1];hide();s.paused=0;
+ if(ok){s.inc++;s.score+=20+o[4];s.stress=Math.max(0,s.stress+o[3]);say('✅ '+o[2]);fx('Incident รอด! +'+(20+o[4]),s.p.x,s.p.y-26,'#1a8f4b')}
+ else{say('💥 '+o[5]);hurt(o[6],'Stress +'+o[6])}}
+function final(){S.paused=1;S.pending={n:3,f:fin};
+ show('<div class="big">👔</div><h2>16:59 หัวหน้าปรากฏตัว!</h2><p>"พรุ่งนี้เช้าขอ Demo ลูกค้านะ"</p>'+['A. รับทราบครับ','B. ผมลาพรุ่งนี้ครับ','C. วิ่งออกประตู!'].map((t,i)=>`<button data-i="${i}">${t}</button>`).join(''),bind)}
+function fin(i){if(!S.pending)return;S.pending=null;hide();
+ if(i==0)finish(0,'"รับทราบครับ" ... แล้วก็นั่งทำ Demo ถึงดึก');
+ else if(i==1){if(Math.random()<.5)finish(1,'ลาผ่าน! หัวหน้าอนุมัติแบบงงๆ');else finish(0,'หัวหน้า: "ลาไม่ได้ Demo สำคัญ"')}
+ else mash()}
+function mash(){const s=S,end=performance.now()+4000;let n=0,iv;
+ show('<div class="big">🏃💨</div><h2>วิ่งออกประตู!</h2><p>กดปุ่มรัวๆ ให้ครบ 12 ครั้งใน 4 วินาที</p><button id="run" style="font-size:24px;padding:24px">วิ่ง!</button><p id="cn" class="dim">0 / 12</p>');
+ const done=w=>{if(!s.mash)return;s.mash=null;clearInterval(iv);const b=w?Math.round(Math.max(0,end-performance.now())/12)+n*3:0;s.esc=b;
+  finish(w,w?'คุณกลับบ้านได้สำเร็จ!':'วิ่งไม่ทัน หัวหน้าจับได้ที่ประตู',b)};
+ s.mash=()=>{n++;$('cn').textContent=n+' / 12';if(n>=12)done(1)};
+ $('run').onpointerdown=e=>{e.preventDefault();if(s.mash)s.mash()};
+ iv=setInterval(()=>{if(performance.now()>=end)done(0)},50)}
+
+function board(n,id){const a=load().sort((x,y)=>y.s-x.s).slice(0,n);
+ return a.length?'<ol class="lb">'+a.map(r=>`<li${r.id===id?' class="me"':''}><span>${esc(r.n)}</span><span>${esc(r.k)} ${esc(r.s)}</span></li>`).join('')+'</ol>':'<p class="dim">ยังไม่มีคะแนน — ชื่อแรกบนบอร์ดเป็นของคุณได้</p>'}
+function finish(win,msg,bonus=0){const s=S;if(s.over)return;s.over=1;s.paused=0;s.pending=null;s.mash=null;if(win&&!RM)for(let i=0;i<70;i++)parts.push({x:R(0,W),y:R(-80,0),vx:R(-30,30),vy:R(60,150),life:R(2.5,4),max:4,c:pick(['#ffd447','#4b53bc','#e4472e','#2bb3ff','#3fbf7f']),sz:R(3,6),g:30,r:1});
+ const tot=s.score+Math.round(s.t)*2+bonus+(win?300+(100-s.stress)*3:0),rk=win?(tot>=800?RK[0]:RK[1]):(s.t>=30?RK[2]:RK[3]),id=Date.now();
+ const a=load();a.push({id,n:s.name,s:tot,k:rk.e});a.sort((x,y)=>y.s-x.s);save(a.slice(0,50));
+ show(`<div class="big">${win?'🏆':'💥'}</div><h2>${win?'VICTORY':'GAME OVER'}</h2><p>${msg}</p><p>${rk.e} <b>${rk.n}</b><br>"${rk.q}"</p><div class="score">${tot}</div>
+<ul class="st"><li>Incident ที่รอด<b>${s.inc}</b></li><li>PO ที่หลบได้<b>${s.po}</b></li><li>Defect ที่ Won't Fix<b>${s.bug}</b></li><li>ความเร็วออกประตู<b>${s.esc}</b></li></ul>
+<h3>Score board</h3>${board(8,id)}<button id="again">เล่นอีกครั้ง</button><button id="ren" class="alt">เปลี่ยนชื่อ</button>`,
+ ()=>{$('again').onclick=()=>{newGame(s.name);hide()};$('ren').onclick=showStart})}
+function showStart(pre){let nm=typeof pre=='string'?pre:'';if(typeof pre!='string'){try{nm=localStorage.getItem('office17-name')||''}catch(e){}}
+ show(`<h1>17:00 Office Escape!</h1><p>ตอนนี้ 16:00 — เอาตัวรอดในออฟฟิศให้ครบ 60 วินาที แล้วกลับบ้านให้ได้</p><label for="nm">ชื่อผู้เล่น</label><input id="nm" maxlength="12" autocomplete="off" placeholder="ใส่ชื่อก่อนเริ่มเล่น" value="${esc(nm)}"><p id="er" class="er"></p><button id="go">เข้าออฟฟิศ</button><button id="rl" class="alt">กติกาการเล่น</button><p class="dim">ลากนิ้ว/เมาส์ หรือกด WASD เพื่อเดิน<br>หลบ 👔 หัวหน้า 🥷 PO 🐞 Defect · เก็บ ☕ 🎧 🚀 📅</p><h3>Score board</h3>${board(5)}`,
+ ()=>{const go=()=>{const n=$('nm').value.trim();if(!n){$('er').textContent='ใส่ชื่อก่อนเริ่มเล่นนะ';$('nm').focus();return}
+  try{localStorage.setItem('office17-name',n)}catch(e){}newGame(n);hide()};
+  $('go').onclick=go;$('rl').onclick=()=>showRules($('nm').value);$('nm').onkeydown=e=>{if(e.key=='Enter')go()}})}
+function showRules(nm){show(`<h2 style="margin-top:14px">กติกาการเล่น</h2><div class="rules">
+<h3>เป้าหมาย</h3>
+<ul><li>เริ่ม 16:00 เล่นจริง 60 วินาที (1 วินาที = 1 นาที) รอดให้ถึง 17:00 แล้ววิ่งออกจากออฟฟิศ</li><li>Stress เต็ม 100% = Game Over (เกมหยุดตอนต้องเลือกตัวเลือก)</li><li>Stress ลดลงเองวินาทีละ 1 และหลังโดนจะมีช่วงอมตะสั้นๆ (ตัวกะพริบ)</li></ul>
+<h3>วิธีเล่น</h3>
+<ul><li>ลากนิ้ว/เมาส์ให้ตัวละครเดินตาม หรือกด WASD / ลูกศร</li><li>ตัวเลือก: แตะ หรือกดเลข 1-3 · ตอนวิ่งออกประตู: แตะรัวๆ หรือกด Space</li></ul>
+<h3>ศัตรู</h3>
+<ul><li>👔 หัวหน้า: วิ่งไล่ตาม ถูกจับ Stress +15</li><li>🥷 PO Ninja: โผล่ตามขอบจอ (มี ⚠️ เตือนก่อน) แล้วพุ่งมาหา ชน = Backlog +3 (Stress +4) หลบพ้น +10 คะแนน</li><li>🐞 Defect: Minor +4 / Major +10 / Works on My Machine +16 Stress ไล่ตาม 6 วินาทีแล้วหายไป (Won't Fix +5 คะแนน)</li></ul>
+<h3>ไอเท็ม (เดินไปชนเพื่อเก็บ หายเองใน 12 วินาที)</h3>
+<ul><li>☕ Stress -25 · 🎧 หัวหน้ามองไม่เห็น 7 วิ</li><li>🚀 Deploy ทุกคนหยุด 6 วิ · 📅 Fake Calendar หัวหน้าหาไม่เจอ 10 วิ</li></ul>
+<h3>เหตุการณ์ (ผลลัพธ์สุ่ม เลือกให้ดี)</h3>
+<ul><li>16:14 Teams Call · 16:32 UAT ผ่านแล้ว แต่อีก 3 วิ QA เจอ Critical Defect (Stress +15)</li><li>16:45 Production Down · 16:55 Friday Evening</li><li>16:59 หัวหน้าสั่ง Demo: A แพ้ทันที · B ลุ้นเอา · C วิ่งออกประตู กดรัวให้ครบ 12 ครั้งใน 4 วินาที = ชนะ</li></ul>
+<h3>คะแนน</h3>
+<ul><li>หลบ PO +10 · Defect หายเอง +5 · เลือกตัวเลือกรอด +30 ถึง +80 · เวลาที่รอด วินาทีละ +2</li><li>ถ้าชนะ +300 บวกโบนัสตาม Stress ที่เหลือ และความเร็วตอนวิ่งออกประตู</li></ul>
+<h3>Rank</h3>
+<ul><li>🥇 Legendary BA: ชนะ และคะแนนตั้งแต่ 800</li><li>🥈 Senior Survivor: ชนะ</li><li>🥉 Junior Hero: แพ้ แต่รอดถึง 16:30</li><li>💀 Production Slave: แพ้ก่อน 16:30</li></ul>
+</div><button id="bk">กลับ</button>`,()=>{$('bk').onclick=()=>showStart(nm)})}
+
+function upd(dt){const s=S,p=s.p,b=s.boss,f=s.fz>0?0:1;
+ if(s.intro>0){s.intro-=dt;return}s.t+=dt;s.fz=Math.max(0,s.fz-dt);s.hp=Math.max(0,s.hp-dt);s.shake=Math.max(0,s.shake-dt);b.cool-=dt;b.blind=Math.max(0,b.blind-dt);s.inv=Math.max(0,s.inv-dt);s.stress=Math.max(0,s.stress-dt);
+ let dx=0,dy=0;
+ if(ptr.d){dx=ptr.x-p.x;dy=ptr.y-p.y;const l=Math.hypot(dx,dy);if(l>8){dx/=l;dy/=l}else dx=dy=0}
+ else{dx=(keys.ArrowRight||keys.d?1:0)-(keys.ArrowLeft||keys.a?1:0);dy=(keys.ArrowDown||keys.s?1:0)-(keys.ArrowUp||keys.w?1:0);const l=Math.hypot(dx,dy);if(l){dx/=l;dy/=l}}
+ p.x=Math.max(14,Math.min(W-14,p.x+dx*165*dt));p.y=Math.max(14,Math.min(H-14,p.y+dy*165*dt));if(dx||dy){s.walk+=dt*12;if(dx)s.face=dx>0?1:-1;if(Math.random()<.35)dust(p.x,p.y+13)}
+ if(f){const lost=s.hp>0||b.blind>0;
+  if(lost){b.wt-=dt;if(b.wt<=0){b.wt=1.5;b.w={x:R(30,W-30),y:R(40,H-40)}}}
+  const tg=lost?b.w:p,ax=tg.x-b.x,ay=tg.y-b.y,l=Math.hypot(ax,ay)||1,sp=42+s.t*.35;
+  b.x+=ax/l*sp*dt;b.y+=ay/l*sp*dt;
+  if(!lost&&b.cool<=0&&l<22){hit(15,'👔 "'+pick(BOSSQ)+'" +15');b.cool=2.5;b.x=Math.random()<.5?30:W-30;b.y=40}}
+ s.pos=s.pos.filter(q=>{
+  if(q.w>0){q.w-=dt*f;if(q.w<=0){const a=Math.atan2(p.y-q.y,p.x-q.x);q.vx=Math.cos(a)*160;q.vy=Math.sin(a)*160}return true}
+  q.x+=q.vx*dt*f;q.y+=q.vy*dt*f;
+  if(f&&Math.hypot(q.x-p.x,q.y-p.y)<20){hit(4,'🥷 "'+pick(POQ)+'" Backlog +3');return false}
+  if(q.x<-40||q.x>W+40||q.y<-40||q.y>H+40){s.po++;s.score+=10;burst(Math.max(0,Math.min(W,q.x)),Math.max(0,Math.min(H,q.y)),'#4b53bc',6);return false}
+  return true});
+ s.bugs=s.bugs.filter(u=>{u.age+=dt*f;const ax=p.x-u.x,ay=p.y-u.y,l=Math.hypot(ax,ay)||1;
+  u.x+=ax/l*u.sp*dt*f;u.y+=ay/l*u.sp*dt*f;
+  if(f&&l<18){hit(u.v,'🐞 '+u.tx);return false}
+  if(u.age>6){s.bug++;s.score+=5;burst(u.x,u.y,'#9aa0b5',8);fx("Won't Fix +5",u.x,u.y,'#6b7280');return false}
+  return true});
+ s.items=s.items.filter(it=>{it.age+=dt;if(Math.hypot(it.x-p.x,it.y-p.y)<32){take(it.k);return false}return it.age<12});
+ s.fx=s.fx.filter(o=>(o.t+=dt)<1.6);
+ if(s.over)return;
+ if(s.t>=s.n5){s.n5+=5;tick()}
+ for(const k in EV)if(!s.done[k]&&s.t>=EV[k].at){s.done[k]=1;choice(k);return}
+ if(!s.uat&&s.t>=32){s.uat=1;say('🎉 UAT ผ่านแล้ว! ทุกคนดีใจ...')}
+ if(s.uat==1&&s.t>=35){s.uat=2;say('🐞 QA: "เจอ Defect Critical ครับ"');hurt(15,'🐞 Critical Defect +15')}
+ if(!s.over&&!s.done.fin&&s.t>=59){s.done.fin=1;final()}}
+
+function em(c,x,y,z,r,sx,sy){g.save();g.translate(x,y);if(r)g.rotate(r);if(sx)g.scale(sx,sy||sx);g.font=z+'px '+EF;g.fillText(c,0,0);g.restore()}
+const shadow=(x,y,r)=>{g.fillStyle='rgba(20,24,60,.18)';g.beginPath();g.ellipse(x,y,r,r*.38,0,0,7);g.fill()};
+const cover=c=>{g.fillStyle=c;g.fillRect(-8,-8,W+16,H+16)};
+function step(dt){S.flash=Math.max(0,S.flash-dt);for(let i=parts.length;i--;){const q=parts[i];q.life-=dt;if(q.life<=0){parts.splice(i,1);continue}q.vy+=q.g*dt;q.x+=q.vx*dt;q.y+=q.vy*dt}}
+function draw(){const s=S,p=s.p,b=s.boss,T=performance.now()/1000,k=Math.min(1,s.t/60),
+ near=!s.over&&!s.paused&&s.fz<=0&&s.hp<=0&&b.blind<=0&&Math.hypot(b.x-p.x,b.y-p.y)<120;
+ g.save();g.textAlign='center';g.textBaseline='middle';
+ if(s.shake>0)g.translate(R(-4,4),R(-4,4));
+ for(let i=0;i<10;i++)for(let j=0;j<13;j++){g.fillStyle=(i+j)%2?'#d3e2de':'#cadbd6';g.fillRect(i*40,j*40,40,40)}
+ g.fillStyle='#c9cde8';g.fillRect(-8,-8,W+16,54);g.fillStyle='#8f95c4';g.fillRect(-8,44,W+16,4);
+ const sk=g.createLinearGradient(0,8,0,36);sk.addColorStop(0,rgb(mix([120,196,255],[255,138,92],k)));sk.addColorStop(1,rgb(mix([224,242,255],[255,214,160],k)));
+ for(const[x,w]of[[12,56],[76,56],[318,70]]){g.fillStyle='#f4f5fb';g.fillRect(x-3,5,w+6,34);g.fillStyle=sk;g.fillRect(x,8,w,28)}
+ g.save();g.beginPath();g.rect(12,8,56,28);g.clip();g.fillStyle=rgb(mix([255,240,150],[255,110,60],k));g.beginPath();g.arc(40,14+k*20,7,0,7);g.fill();g.restore();
+ g.fillStyle='#fff';g.strokeStyle='#4b53bc';g.lineWidth=2.5;g.beginPath();g.arc(276,26,15,0,7);g.fill();g.stroke();
+ const mm=Math.min(60,s.t),ah=(4+mm/60)/12*6.283-1.571,am=mm/60*6.283-1.571;
+ g.strokeStyle='#1c1f3a';g.lineWidth=2;g.beginPath();g.moveTo(276,26);g.lineTo(276+Math.cos(ah)*8,26+Math.sin(ah)*8);g.moveTo(276,26);g.lineTo(276+Math.cos(am)*12,26+Math.sin(am)*12);g.stroke();
+ const gl=k>.8?(k-.8)*5:0,pl=.55+.45*Math.sin(T*(3+k*9));
+ g.fillStyle=rgb(mix([122,90,58],[255,205,90],gl));g.fillRect(168,14,64,34);g.fillStyle='rgba(0,0,0,.18)';g.fillRect(199,14,2,34);
+ g.fillStyle='rgba(22,128,72,'+pl+')';g.fillRect(172,2,56,12);g.fillStyle='#fff';g.font='700 10px Prompt,sans-serif';g.fillText('EXIT 17:00',200,8.5);
+ for(const[x,y]of DK){g.fillStyle='rgba(20,24,60,.14)';g.fillRect(x+3,y+5,100,34);g.fillStyle='#b98b5c';g.fillRect(x,y,100,34);g.fillStyle='#d1a575';g.fillRect(x,y,100,5);
+  g.fillStyle='#2a2f52';g.fillRect(x+34,y+6,32,18);g.fillStyle=s.stress>70&&(T*4|0)%2?'#ff8a7a':'#8fd3ff';g.fillRect(x+36,y+8,28,14);
+  g.fillStyle='#f4f5fb';g.fillRect(x+38,y+27,24,4);g.fillStyle='#6d74d1';g.beginPath();g.arc(x+50,y+48,10,0,7);g.fill()}
+ for(const[c,x,y]of PR)em(c,x,y,24);
+ s.items.forEach(it=>{if(it.age>9&&(it.age*6|0)%2)return;const y=it.y+Math.sin(T*4+it.x)*3,c=CL[it.k],gr=g.createRadialGradient(it.x,y,2,it.x,y,24);gr.addColorStop(0,c+'aa');gr.addColorStop(1,c+'00');g.fillStyle=gr;g.beginPath();g.arc(it.x,y,24,0,7);g.fill();em(EM[it.k],it.x,y,26)});
+ s.bugs.forEach(u=>{shadow(u.x,u.y+11,8);g.globalAlpha=.35+.1*Math.sin(T*8);g.fillStyle=u.c;g.beginPath();g.arc(u.x,u.y,17,0,7);g.fill();g.globalAlpha=1;em('🐞',u.x,u.y,20,Math.sin(T*14+u.x)*.35);g.fillStyle='#1c1f3a';g.font='700 10px Prompt,sans-serif';g.fillText('+'+u.v,u.x,u.y+21)});
+ s.pos.forEach(q=>{if(q.w>0){g.setLineDash([6,6]);g.strokeStyle='rgba(228,71,46,.5)';g.lineWidth=2;g.beginPath();g.moveTo(q.x,q.y);g.lineTo(p.x,p.y);g.stroke();g.setLineDash([]);em('⚠️',q.x,q.y,22,0,1+.15*Math.sin(T*20))}
+  else{shadow(q.x,q.y+13,11);for(let i=3;i>0;i--){g.globalAlpha=.08*(4-i);em('🥷',q.x-q.vx*.03*i,q.y-q.vy*.03*i,28)}g.globalAlpha=1;em('🥷',q.x,q.y,28,q.vx*.002)}});
+ shadow(b.x,b.y+17,14);g.strokeStyle='rgba(228,71,46,'+(near?.6:.25)+')';g.lineWidth=2.5;g.beginPath();g.arc(b.x,b.y,22+Math.sin(T*6)*2,0,7);g.stroke();
+ em('👔',b.x,b.y+Math.sin(T*7)*2,34,Math.sin(T*5)*.06);
+ if(near)em('💢',b.x+16,b.y-18,16,0,1+.2*Math.sin(T*16));
+ if(s.hp>0||b.blind>0)em('❓',b.x,b.y-26,16,0,1+.15*Math.sin(T*6));
+ const mv=Math.abs(Math.sin(s.walk))*3,sq=Math.sin(s.walk*2)*.05;
+ shadow(p.x,p.y+14,12);g.globalAlpha=s.inv>0&&(T*14|0)%2?.35:1;
+ if(s.fz>0){g.strokeStyle='#4b53bc';g.lineWidth=3;g.beginPath();g.arc(p.x,p.y,24,-1.57,-1.57+6.28*s.fz/6);g.stroke()}
+ em('🧑‍💻',p.x,p.y-mv,30,0,s.face*(1+sq),1-sq);g.globalAlpha=1;
+ if(s.hp>0)em('🎧',p.x,p.y-24-mv,16);
+ if(s.stress>60)em(s.stress>85?'😱':'😰',p.x+18,p.y-14-mv,14,0,1+.1*Math.sin(T*12));
+ for(const q of parts){g.globalAlpha=Math.max(0,q.life/q.max);g.fillStyle=q.c;if(q.r)g.fillRect(q.x,q.y,q.sz,q.sz*1.6);else{g.beginPath();g.arc(q.x,q.y,q.sz,0,7);g.fill()}}g.globalAlpha=1;
+ cover('rgba(255,130,60,'+.16*k+')');if(s.fz>0)cover('rgba(75,83,188,.13)');
+ const dg=Math.max(s.flash*1.6,near?.16+.08*Math.sin(T*10):0),vg=g.createRadialGradient(W/2,H/2,140,W/2,H/2,330);
+ vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,dg>0?'rgba(228,71,46,'+Math.min(.65,dg+.12)+')':'rgba(28,31,58,.28)');g.fillStyle=vg;g.fillRect(-8,-8,W+16,H+16);
+ s.fx.forEach(o=>{g.globalAlpha=Math.max(0,1-o.t/1.6);g.font=TF;const x=Math.max(110,Math.min(W-110,o.x)),y=o.y-o.t*28;g.lineWidth=4;g.strokeStyle='#fff';g.strokeText(o.txt,x,y);g.fillStyle=o.c;g.fillText(o.txt,x,y)});
+ g.globalAlpha=1;
+ if(s.intro>0&&!s.over){g.globalAlpha=Math.min(1,s.intro*2);g.font='700 34px Prompt,sans-serif';g.lineWidth=7;g.strokeStyle='#4b53bc';g.fillStyle='#fff';g.strokeText('16:00 เริ่ม!',W/2,H/2);g.fillText('16:00 เริ่ม!',W/2,H/2)}
+ g.restore()}
+function hud(){const m=Math.min(60,Math.floor(S.t));$('clk').textContent=m>=60?'17:00':'16:'+String(m).padStart(2,'0');
+ $('fill').style.width=S.stress+'%';$('fill').style.background='hsl('+(50-S.stress*.5)+',85%,55%)';
+ $('fc').textContent=['😀','🙂','😐','😰','🤯'][Math.min(4,S.stress/20|0)]+' Stress';$('bar').classList.toggle('hot',S.stress>=70);
+ if(S.score!==lsc){lsc=S.score;const e=$('sc');e.textContent=lsc;e.classList.remove('bump');void e.offsetWidth;e.classList.add('bump')}}
+function loop(ts){requestAnimationFrame(loop);const dt=Math.min(.05,(ts-last)/1000||0);last=ts;if(!S.over&&!S.paused)upd(dt);step(dt);draw();hud()}
+
+const pp=e=>{const r=cv.getBoundingClientRect();ptr.x=(e.clientX-r.left)*W/r.width;ptr.y=(e.clientY-r.top)*H/r.height};
+cv.onpointerdown=e=>{ptr.d=1;pp(e);try{cv.setPointerCapture(e.pointerId)}catch(x){}};
+cv.onpointermove=e=>{if(ptr.d)pp(e)};
+cv.onpointerup=cv.onpointercancel=()=>{ptr.d=0};
+cv.oncontextmenu=e=>e.preventDefault();
+addEventListener('keydown',e=>{const k=e.key.length>1?e.key:e.key.toLowerCase(),inp=document.activeElement&&document.activeElement.tagName=='INPUT';
+ if(inp)return;
+ if(k.startsWith('Arrow')||k==' ')e.preventDefault();
+ keys[k]=1;
+ if(S.pending&&/^[1-9]$/.test(k)&&+k<=S.pending.n)S.pending.f(+k-1);
+ if(k==' '&&S.mash&&!e.repeat)S.mash()});
+addEventListener('keyup',e=>{delete keys[e.key.length>1?e.key:e.key.toLowerCase()]});
+
+newGame('');S.over=1;showStart();requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
